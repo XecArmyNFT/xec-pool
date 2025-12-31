@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>XEC POOL – Test Build</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+
+<style>
+body {
+  background:#050505;
+  color:#fff;
+  font-family: system-ui, sans-serif;
+}
+canvas { cursor: crosshair; }
+</style>
+</head>
+
+<body class="min-h-screen">
+
+<!-- NAV -->
+<nav class="fixed w-full top-0 z-50 bg-black border-b border-gray-800 px-6 py-4 flex justify-between">
+  <div class="font-bold text-xl">XEC <span class="text-red-600">POOL</span></div>
+  <button onclick="openGame()" class="bg-red-600 px-5 py-2 rounded font-bold">
+    <i class="fa-solid fa-play"></i> PLAY NOW
+  </button>
+</nav>
+
+<!-- HERO -->
+<section class="pt-32 text-center">
+  <h1 class="text-5xl font-black mb-4">PLAY POOL. <span class="text-red-600">WIN XEC.</span></h1>
+  <p class="text-gray-400 mb-8">2D physics test build (no betting yet)</p>
+</section>
+
+<!-- GAME OVERLAY -->
+<section id="pool-game" class="hidden fixed inset-0 bg-black z-[9999]">
+
+  <div class="flex justify-between items-center px-6 py-4 bg-gray-900 border-b border-gray-800">
+    <h2 class="text-lg font-bold text-red-500">XEC POOL — 2D TEST</h2>
+    <button onclick="closeGame()" class="bg-red-600 px-4 py-2 rounded font-bold">
+      EXIT
+    </button>
+  </div>
+
+  <canvas id="poolCanvas"
+    width="1200"
+    height="600"
+    class="block mx-auto mt-6 border-4 border-red-600 rounded-xl bg-green-800">
+  </canvas>
+
+  <p class="text-center text-gray-400 mt-4 text-sm">
+    Click & drag to aim — release to shoot
+  </p>
+</section>
+
+<!-- GAME SCRIPT -->
+<script>
+const { Engine, Render, World, Bodies, Body } = Matter;
+
+let engine, render;
+let cueBall;
+let balls = [];
+let isMyTurn = true;
+let aiming = false;
+let aimStart = null;
+
+function openGame() {
+  document.getElementById("pool-game").classList.remove("hidden");
+  initPool();
+}
+
+function closeGame() {
+  document.getElementById("pool-game").classList.add("hidden");
+  Render.stop(render);
+  World.clear(engine.world);
+  Engine.clear(engine);
+}
+
+function initPool() {
+  engine = Engine.create();
+  engine.world.gravity.y = 0;
+
+  render = Render.create({
+    canvas: document.getElementById("poolCanvas"),
+    engine,
+    options: {
+      width: 1200,
+      height: 600,
+      wireframes: false,
+      background: "#166534"
+    }
+  });
+
+  const walls = [
+    Bodies.rectangle(600, -10, 1200, 20, { isStatic: true }),
+    Bodies.rectangle(600, 610, 1200, 20, { isStatic: true }),
+    Bodies.rectangle(-10, 300, 20, 600, { isStatic: true }),
+    Bodies.rectangle(1210, 300, 20, 600, { isStatic: true })
+  ];
+
+  cueBall = Bodies.circle(300, 300, 12, {
+    restitution: 0.98,
+    friction: 0.01,
+    frictionAir: 0.02,
+    render: { fillStyle: "#ffffff" }
+  });
+
+  balls = [cueBall];
+
+  for (let i = 0; i < 3; i++) {
+    const ball = Bodies.circle(800 + i * 26, 300, 12, {
+      restitution: 0.98,
+      friction: 0.01,
+      frictionAir: 0.02,
+      render: { fillStyle: "#facc15" }
+    });
+    balls.push(ball);
+  }
+
+  World.add(engine.world, [...walls, ...balls]);
+  Engine.run(engine);
+  Render.run(render);
+
+  setupControls();
+}
+
+function setupControls() {
+  const canvas = document.getElementById("poolCanvas");
+
+  canvas.onmousedown = e => {
+    if (!isMyTurn) return;
+    aiming = true;
+    aimStart = getMouse(e);
+  };
+
+  canvas.onmouseup = e => {
+    if (!aiming) return;
+    aiming = false;
+
+    const end = getMouse(e);
+    const dx = aimStart.x - end.x;
+    const dy = aimStart.y - end.y;
+
+    Body.applyForce(
+      cueBall,
+      cueBall.position,
+      { x: dx * 0.0005, y: dy * 0.0005 }
+    );
+
+    isMyTurn = false;
+    waitForStop();
+  };
+}
+
+function getMouse(e) {
+  const rect = e.target.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+function waitForStop() {
+  const check = setInterval(() => {
+    const moving = balls.some(b =>
+      Math.abs(b.velocity.x) > 0.05 ||
+      Math.abs(b.velocity.y) > 0.05
+    );
+    if (!moving) {
+      clearInterval(check);
+      isMyTurn = true;
+    }
+  }, 250);
+}
+</script>
+
+</body>
+</html>
